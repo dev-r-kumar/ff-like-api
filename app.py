@@ -15,8 +15,6 @@ from cachetools import TTLCache
 from collections import defaultdict
 import FreeFire_pb2
 import os
-import time
-import threading
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
@@ -129,6 +127,22 @@ def like():
     })
 
 
+        
+async def initialize_tokens():
+    try:
+        tasks = [GenerateJWT()]
+        await asyncio.gather(*tasks, return_exceptions=True)
+    except DecodeError:
+        pass
+
+
+async def refresh_tokens_periodically():
+    while True:
+        # refresh tokens after 7 hours !
+        await asyncio.sleep(25200)
+        await initialize_tokens()
+
+
 def get_accounts():
     accounts = []
     with open("accounts.json", 'r') as account_:
@@ -193,29 +207,33 @@ async def GenerateJWT():
         tokens = await asyncio.gather(*(fetch_token(acc) for acc in accounts))
 
         data = [{"token": t.replace("Bearer ", "")} for t in tokens if t]  # list of dicts
-        return data
-    
+
+        # write tokens in the file 
+        tokens_file = os.path.join(os.path.dirname(__file__), "tokens", "token.json")
+
+        with open(tokens_file, "w") as token_file:
+            json.dump(data, token_file, indent=2)
 
 
-def token_refresh_loop():
-    import asyncio, time, os, json
-    while True:
-        try:
-            tokens = asyncio.run(GenerateJWT())  # generate tokens
-            tokens_path = os.path.join(os.path.dirname(__file__), "tokens", "token.json")
-            with open(tokens_path, "w") as f:
-                json.dump(tokens, f, indent=2)
-            print(f"[{time.strftime('%X')}] Tokens refreshed...")
-        except Exception as e:
-            print(f"Error refreshing tokens: {e}")
-        time.sleep(6 * 60 * 60)  # 6 hours
+
+@app.route("/refresh-tokens")
+def refresh_token():
+    try:
+        asyncio.run(initialize_tokens())
+        return jsonify({'status': "all tokens refreshed..."}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+async def startup():
+    await initialize_tokens()
+    asyncio.create_task(refresh_tokens_periodically())
 
 
 if __name__ == "__main__":
-    threading.Thread(target=token_refresh_loop, daemon=True).start()  
+    asyncio.run(startup())
     app.run(host='0.0.0.0', port=8000, debug=True)
-
-
 
 
 
