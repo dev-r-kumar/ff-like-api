@@ -15,8 +15,8 @@ from cachetools import TTLCache
 from collections import defaultdict
 import FreeFire_pb2
 import os
-import threading
 import time
+import threading
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
@@ -197,32 +197,22 @@ async def GenerateJWT():
     
 
 
-def refresh_tokens():
-    global TOKEN_CREATED_TIME, TOKEN_REFRESH_TIME
+def token_refresh_loop():
+    import asyncio, time, os, json
     while True:
-        if int(time.time()) >= TOKEN_REFRESH_TIME:
-            try:
-                tokens = asyncio.run(GenerateJWT())
-                tokens_path = os.path.join(os.path.dirname(__file__), "tokens", "token.json")
-
-                with open(tokens_path, 'w') as new_token_file:
-                    json.dump(tokens, new_token_file, indent=2)
-
-                print("tokens refreshed...")
-                hours_refresh_after = 5
-                TOKEN_CREATED_TIME = int(time.time())
-                TOKEN_REFRESH_TIME = TOKEN_CREATED_TIME + hours_refresh_after * 60 * 60
-                print(f'next token refresh time: {str(TOKEN_REFRESH_TIME)}')
-
-                time.sleep(20)
-            except Exception as e:
-                print(f"error: {str(e)}")
-            
-
+        try:
+            tokens = asyncio.run(GenerateJWT())  # generate tokens
+            tokens_path = os.path.join(os.path.dirname(__file__), "tokens", "token.json")
+            with open(tokens_path, "w") as f:
+                json.dump(tokens, f, indent=2)
+            print(f"[{time.strftime('%X')}] Tokens refreshed...")
+        except Exception as e:
+            print(f"Error refreshing tokens: {e}")
+        time.sleep(6 * 60 * 60)  # 6 hours
 
 
 if __name__ == "__main__":
-    threading.Thread(target=asyncio.run(refresh_tokens())).start()
+    threading.Thread(target=token_refresh_loop, daemon=True).start()  
     app.run(host='0.0.0.0', port=8000, debug=True)
 
 
