@@ -199,6 +199,10 @@ async def GenerateJWT():
             # If response is not valid protobuf, log for debug
             try:
                 msg = json.loads(json_format.MessageToJson(decode_protobuf(resp.content, FreeFire_pb2.LoginRes)))
+
+                cached_tokens
+
+
                 return f"Bearer {msg.get('token','0')}"
             except Exception as e:
                 print(f"Failed for account {account}: {resp.text[:200]}")
@@ -237,5 +241,5 @@ if __name__ == "__main__":
 
 
 
-# credits: developer nighthakws
+
 
