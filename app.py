@@ -90,7 +90,9 @@ async def send(token, url, data):
 async def multi(uid, server, url):
     enc = encrypt_message(create_like(uid, server))
     tokens = load_tokens(server)
-    return await asyncio.gather(*[send(tokens[i%len(tokens)]['token'], url, enc) for i in range(105)])
+    return await asyncio.gather(*[send(tokens[i%len(tokens)]['token'], url, enc) for i in range(len(105))])
+
+
 
 def get_info(enc, server, token):
     urls =URLS_INFO
@@ -224,7 +226,18 @@ async def GenerateJWT():
 def refresh_token():
     try:
         asyncio.run(initialize_tokens())
-        return jsonify({'status': "all tokens refreshed..."}), 200
+
+        # write tokens in the file 
+        tokens_file = os.path.join(os.path.dirname(__file__), "tokens", "token.json")
+
+        with open(tokens_file, "r") as token_file:
+            data = json.load(token_file)
+
+
+        total_tokens = len(data)
+
+
+        return jsonify({'status': f"Tokens Refreshed. Successfully Generated {str(total_tokens)} Tokens."}), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
